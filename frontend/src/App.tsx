@@ -6,7 +6,8 @@ import Notes from './pages/Notes';
 import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import { useEffect } from 'react';
-import { syncData } from './db/sync';
+import { syncData, setupSSE, closeSSE } from './db/sync';
+import { supabase } from './supabase';
 import { ThemeProvider } from './components/ThemeProvider';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 
@@ -16,10 +17,18 @@ function ProtectedRoutes() {
   useEffect(() => {
     if (user) {
       syncData();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setupSSE(session.access_token);
+        }
+      });
       const intervalId = setInterval(() => {
         syncData();
-      }, 10000); // sync every minute
-      return () => clearInterval(intervalId);
+      }, 5 * 60 * 1000); // sync every 5 minutes as fallback
+      return () => {
+        clearInterval(intervalId);
+        closeSSE();
+      };
     }
   }, [user]);
 

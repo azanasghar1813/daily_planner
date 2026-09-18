@@ -7,7 +7,8 @@ let isSyncing = false;
 async function pushToBackend(endpoint: string, payload: any) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(`/api/${endpoint}`, {
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+    const res = await fetch(`${API_BASE}/api/${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -29,7 +30,8 @@ async function pullFromBackend() {
     if (!session) return null;
     
     const lastSync = localStorage.getItem('last_synced_at') || '';
-    const url = lastSync ? `/api/sync/pull?last_sync=${encodeURIComponent(lastSync)}` : `/api/sync/pull`;
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+    const url = `${API_BASE}/api/sync/pull` + (lastSync ? `?last_sync=${encodeURIComponent(lastSync)}` : '');
     
     const res = await fetch(url, {
       method: 'GET',
@@ -145,6 +147,43 @@ export async function syncData() {
     console.error('Sync failed', error);
   } finally {
     isSyncing = false;
+  }
+}
+
+let syncTimeout: number | null = null;
+export function syncDataDebounced() {
+  if (syncTimeout) window.clearTimeout(syncTimeout);
+  syncTimeout = window.setTimeout(() => {
+    syncData().catch(console.error);
+  }, 1000); // 1s debounce
+}
+
+let sseConnection: EventSource | null = null;
+export function setupSSE(token: string) {
+  if (sseConnection) {
+    sseConnection.close();
+  }
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+  sseConnection = new EventSource(`${API_BASE}/api/sync/stream?token=${encodeURIComponent(token)}`);
+  
+  sseConnection.onmessage = (e) => {
+    if (e.data === 'sync') {
+      console.log('Received push notification to sync');
+      syncDataDebounced();
+    }
+  };
+  
+  sseConnection.onerror = (e) => {
+    console.error('SSE Error:', e);
+  };
+  
+  return sseConnection;
+}
+
+export function closeSSE() {
+  if (sseConnection) {
+    sseConnection.close();
+    sseConnection = null;
   }
 }
 

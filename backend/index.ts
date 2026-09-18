@@ -27,8 +27,8 @@ mongoose.connect(MONGODB_URI)
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Configure Supabase
-const supabaseUrl = 'https://pdzigcfswhwylphiawvo.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkemlnY2Zzd2h3eWxwaGlhd3ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NjkzMTMsImV4cCI6MjEwNTE0NTMxM30.C8bRz41DCko5bOye_xgcKxx4cKNLjguQthwm8Bz-ziE';
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
@@ -39,17 +39,26 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Auth Middleware
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  let token = '';
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1] || '';
+  } else if (req.query.token && typeof req.query.token === 'string') {
+    token = req.query.token;
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token || token === 'undefined' || token === 'null') {
+    return res.status(401).json({ error: 'Missing or invalid authorization token' });
+  }
+
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      console.error('Auth error from supabase:', error?.message || 'No user found');
+      // Avoid spamming the console for stream retries, but log clearly
+      if (req.path !== '/api/sync/stream') {
+         console.error(`Auth error for token ${token.substring(0, 15)}... :`, error?.message || 'No user found');
+      }
       return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
 
@@ -61,6 +70,36 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
     return res.status(401).json({ error: 'Unauthorized: Exception' });
   }
 };
+
+// SSE Clients mapping user_id -> response[]
+const sseClients = new Map<string, express.Response[]>();
+
+const notifyClients = (userId: string) => {
+  const clients = sseClients.get(userId) || [];
+  clients.forEach(client => {
+    try {
+      client.write('data: sync\n\n');
+    } catch (e) {
+      console.error('SSE Write Error:', e);
+    }
+  });
+};
+
+app.get('/api/sync/stream', requireAuth, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); 
+
+  const userId = (req as any).user.id;
+  if (!sseClients.has(userId)) sseClients.set(userId, []);
+  sseClients.get(userId)!.push(res);
+
+  req.on('close', () => {
+    const clients = sseClients.get(userId) || [];
+    sseClients.set(userId, clients.filter(c => c !== res));
+  });
+});
 
 // Configure Cloudinary
 cloudinary.config({
@@ -121,28 +160,6 @@ app.post('/api/upload', requireAuth, upload.single('file'), async (req, res) => 
   }
 });
 
-// Get tasks for a user on a specific date
-app.get('/api/tasks', async (req, res) => {
-  const { date, user_id } = req.query;
-  
-  if (!date || !user_id) {
-    return res.status(400).json({ error: 'Missing date or user_id' });
-  }
-
-  try {
-    const tasks = await Task.find({ user_id: String(user_id), date: String(date) }).sort({ start_time: 1 }).lean();
-    
-    // Fetch details for each task
-    const tasksWithDetails = await Promise.all(tasks.map(async (task) => {
-      const details = await TaskDetail.find({ task_id: task.id }).sort({ start_time: 1 }).lean();
-      return { ...task, task_details: details };
-    }));
-
-    res.json(tasksWithDetails);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Sync endpoint to handle offline data batches (protected)
 app.post('/api/sync', requireAuth, async (req, res) => {
@@ -150,30 +167,37 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
     
     try {
+      // Security: fetch owned IDs to verify ownership of task_details and attachments
+      const ownedTaskIds = new Set((await Task.find({ user_id: userId }, { id: 1 }).lean()).map(t => t.id));
+      const ownedNoteIds = new Set((await Note.find({ user_id: userId }, { id: 1 }).lean()).map(n => n.id));
+      const ownedTaskDetailIds = new Set((await TaskDetail.find({ task_id: { $in: Array.from(ownedTaskIds) } }, { id: 1 }).lean()).map(d => d.id));
+
       if (tasks && tasks.length > 0) {
         for (const t of tasks) {
           // Verify task belongs to user
           if (t.user_id !== userId) continue;
           
           const { _id, pending_sync, ...taskData } = t; 
-          await Task.findOneAndUpdate({ id: t.id }, taskData, { upsert: true, new: true });
+          await Task.findOneAndUpdate({ id: t.id }, taskData, { upsert: true, returnDocument: 'after' });
         }
       }
       if (task_details && task_details.length > 0) {
         for (const td of task_details) {
+          if (!ownedTaskIds.has(td.task_id)) continue;
           const { _id, pending_sync, ...detailData } = td;
-          await TaskDetail.findOneAndUpdate({ id: td.id }, detailData, { upsert: true, new: true });
+          await TaskDetail.findOneAndUpdate({ id: td.id }, detailData, { upsert: true, returnDocument: 'after' });
         }
       }
       if (notes && notes.length > 0) {
         for (const n of notes) {
           if (n.user_id !== userId) continue;
           const { _id, pending_sync, ...noteData } = n;
-          await Note.findOneAndUpdate({ id: n.id }, noteData, { upsert: true, new: true });
+          await Note.findOneAndUpdate({ id: n.id }, noteData, { upsert: true, returnDocument: 'after' });
         }
       }
       if (attachments && attachments.length > 0) {
         for (const a of attachments) {
+          if (!ownedTaskDetailIds.has(a.task_detail_id) && !ownedNoteIds.has(a.task_detail_id)) continue;
           const { _id, pending_sync, ...attData } = a;
           
           if (attData.deleted) {
@@ -183,7 +207,9 @@ app.post('/api/sync', requireAuth, async (req, res) => {
               const fileName = urlParts.pop();
               const folder = urlParts.pop();
               if (fileName && folder) {
-                const publicId = `${folder}/${fileName.split('.')[0]}`;
+                const dotIndex = fileName.lastIndexOf('.');
+                const baseName = dotIndex > -1 ? fileName.slice(0, dotIndex) : fileName;
+                const publicId = `${folder}/${baseName}`;
                 const resourceType = attData.type === 'image' ? 'image' : (attData.type === 'voice' ? 'video' : 'raw');
                 await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
                 console.log(`Destroyed orphaned file on Cloudinary: ${publicId}`);
@@ -193,11 +219,12 @@ app.post('/api/sync', requireAuth, async (req, res) => {
             }
           }
           
-          await Attachment.findOneAndUpdate({ id: a.id }, attData, { upsert: true, new: true });
+          await Attachment.findOneAndUpdate({ id: a.id }, attData, { upsert: true, returnDocument: 'after' });
         }
       }
       
       console.log(`Successfully synced ${tasks?.length || 0} tasks, ${task_details?.length || 0} details, ${notes?.length || 0} notes, ${attachments?.length || 0} attachments.`);
+      notifyClients(userId);
       res.json({ status: 'synced', timestamp: new Date().toISOString() });
     } catch (error: any) {
       console.error('Sync failed:', error);
@@ -218,17 +245,8 @@ app.get('/api/sync/pull', requireAuth, async (req, res) => {
 
     const tasks = await Task.find(query).lean();
     
-    const taskDetailsQuery: any = { task_id: { $in: tasks.map(t => t.id) } };
-    if (lastSync && tasks.length === 0) {
-      // If we didn't fetch new tasks, we might still need new details. 
-      // But actually, we just need details that belong to the user.
-      // MongoDB TaskDetail doesn't have user_id. We need all details for all user's tasks.
-      // For a true delta, we'd need user_id on task_details or a complex join.
-      // Let's just fetch tasks for the user, then get their details that changed.
-    }
-    
-    // Better way for delta sync when TaskDetail lacks user_id:
-    // First find ALL tasks for the user (just IDs) to scope details, OR we just trust `updated_at` and a scoped task list.
+    // Find ALL tasks for the user (just IDs) to scope details
+
     const allUserTasks = await Task.find({ user_id: userId }, { id: 1 }).lean();
     const taskIds = allUserTasks.map(t => t.id);
 
@@ -238,7 +256,11 @@ app.get('/api/sync/pull', requireAuth, async (req, res) => {
     
     const notes = await Note.find(query).lean();
     
-    const attQuery: any = { user_id: userId };
+    const attTaskDetailIds = await TaskDetail.find({ task_id: { $in: taskIds } }, { id: 1 }).lean();
+    const allUserNotes = await Note.find({ user_id: userId }, { id: 1 }).lean();
+    
+    const parentIds = [...attTaskDetailIds.map(d => d.id), ...allUserNotes.map(n => n.id)];
+    const attQuery: any = { task_detail_id: { $in: parentIds } };
     if (lastSync) attQuery.created_at = { $gt: lastSync }; // Attachments only have created_at
     const attachments = await Attachment.find(attQuery).lean();
 

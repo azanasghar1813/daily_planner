@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { List, ListOrdered, Link2, Mic, MicOff, Undo2, Redo2 } from 'lucide-react';
+import { List, ListOrdered, Link2, Mic, MicOff, Undo2, Redo2, Paperclip } from 'lucide-react';
 import { db, type Attachment } from '../db/db';
+import { supabase } from '../supabase';
 
 interface RichNoteEditorProps {
   initialValue: string;
@@ -22,8 +23,10 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
 
   // Sync to parent
   useEffect(() => {
-    onChange(value);
-  }, [value, onChange]);
+    if (value !== initialValue) {
+      onChange(value);
+    }
+  }, [value]);
 
   const updateValue = (newValue: string) => {
     setValue(newValue);
@@ -107,8 +110,11 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
             formData.append('file', audioBlob, 'voice_note.webm');
             formData.append('type', 'voice');
 
-            const res = await fetch('/api/upload', {
+            const { data: { session } } = await supabase.auth.getSession();
+            const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+            const res = await fetch(`${API_BASE}/api/upload`, {
               method: 'POST',
+              headers: { Authorization: `Bearer ${session?.access_token}` },
               body: formData
             });
             const data = await res.json();
@@ -116,13 +122,13 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
             if (res.ok && data.secure_url) {
               const attachment: Attachment = {
                 id: crypto.randomUUID(),
-                parent_id: parentId,
+                task_detail_id: parentId,
                 type: 'voice',
                 name: `Voice Note ${new Date().toLocaleTimeString()}`,
                 data: data.secure_url,
                 mime_type: 'audio/webm',
                 created_at: new Date().toISOString(),
-                pending_sync: true
+                pending_sync: 1
               };
               
               await db.attachments.add(attachment);
@@ -146,7 +152,50 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
       }
     }
   };
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const isImage = file.type.startsWith('image/');
+      formData.append('type', isImage ? 'image' : 'file');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+      const res = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: formData
+      });
+      const data = await res.json();
+
+      if (res.ok && data.secure_url) {
+        const attachment: Attachment = {
+          id: crypto.randomUUID(),
+          task_detail_id: parentId,
+          type: isImage ? 'image' : 'file',
+          name: file.name,
+          data: data.secure_url,
+          mime_type: file.type || 'application/octet-stream',
+          created_at: new Date().toISOString(),
+          pending_sync: 1
+        };
+        await db.attachments.add(attachment);
+      } else {
+        alert(data.error || 'Upload failed');
+      }
+    } catch (err: any) {
+      alert(`Network error during upload: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
   return (
     <div className="flex flex-col bg-background border border-border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/20">
       
@@ -172,6 +221,12 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
         </button>
         
         <div className="w-px h-4 bg-border mx-1"></div>
+        
+        <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-1.5 rounded hover:bg-secondary text-muted-foreground disabled:opacity-30" title="Attach File/Image">
+          <Paperclip size={16} />
+        </button>
+        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+        
         
         <button onClick={toggleRecording} disabled={isUploading} className={`p-1.5 rounded transition-colors disabled:opacity-30 ${isRecording ? 'bg-red-500/10 text-red-500 animate-pulse' : 'hover:bg-secondary text-muted-foreground'}`} title="Voice Note">
           {isRecording ? <MicOff size={16} /> : <Mic size={16} />}

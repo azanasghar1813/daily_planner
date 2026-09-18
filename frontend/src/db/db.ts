@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { syncDataDebounced } from './sync';
 
 export interface Task {
   id: string; // uuid
@@ -11,7 +12,7 @@ export interface Task {
   completed: boolean;
   created_at: string;
   updated_at: string;
-  pending_sync?: boolean;
+  pending_sync?: number;
   deleted?: boolean;
 }
 
@@ -25,7 +26,7 @@ export interface TaskDetail {
   notes?: string;
   created_at: string;
   updated_at: string;
-  pending_sync?: boolean;
+  pending_sync?: number;
   deleted?: boolean;
 }
 
@@ -36,19 +37,19 @@ export interface Note {
   content: string;
   created_at: string;
   updated_at: string;
-  pending_sync?: boolean;
+  pending_sync?: number;
   deleted?: boolean;
 }
 
 export interface Attachment {
   id: string; // uuid
-  parent_id: string; // the sub-task or note this belongs to
+  task_detail_id: string; // the sub-task or note this belongs to
   type: 'image' | 'file' | 'voice';
   name: string;
   data: string; // Base64 encoded string
   mime_type: string;
   created_at: string;
-  pending_sync?: boolean;
+  pending_sync?: number;
   deleted?: boolean;
 }
 
@@ -60,13 +61,23 @@ export class DailyPlannerDB extends Dexie {
 
   constructor() {
     super('DailyPlannerDB');
-    this.version(3).stores({
-      tasks: 'id, user_id, date, pending_sync',
+    this.version(4).stores({
+      tasks: 'id, user_id, date, [date+user_id], pending_sync',
       taskDetails: 'id, task_id, pending_sync',
       notes: 'id, user_id, pending_sync',
-      attachments: 'id, parent_id, type, pending_sync'
+      attachments: 'id, task_detail_id, type, pending_sync'
     });
   }
 }
 
 export const db = new DailyPlannerDB();
+
+const tables = ['tasks', 'taskDetails', 'notes', 'attachments'] as const;
+tables.forEach(table => {
+  db[table].hook('creating', (primKey, obj: any) => {
+    if (obj.pending_sync === 1) syncDataDebounced();
+  });
+  db[table].hook('updating', (mods: any, primKey, obj: any) => {
+    if (mods.pending_sync === 1 || obj.pending_sync === 1) syncDataDebounced();
+  });
+});

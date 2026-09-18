@@ -33,13 +33,14 @@ export default function Today() {
   const dateStr = format(currentDate, 'yyyy-MM-dd');
   
   const tasks = useLiveQuery(async () => {
-    const allTasks = await db.tasks.where({ date: urlDate }).toArray();
+    if (!user) return [];
+    const allTasks = await db.tasks.where({ date: dateStr, user_id: user.id }).toArray();
     return allTasks.filter(t => !t.deleted).sort((a, b) => {
       if (!a.start_time) return 1;
       if (!b.start_time) return -1;
       return a.start_time.localeCompare(b.start_time);
     });
-  }, [urlDate]);
+  }, [dateStr]);
 
 
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -75,7 +76,7 @@ export default function Today() {
       await db.tasks.update(editingTask.id, {
         ...taskData,
         updated_at: new Date().toISOString(),
-        pending_sync: true
+        pending_sync: 1
       });
     } else {
       await db.tasks.add({
@@ -84,7 +85,7 @@ export default function Today() {
         completed: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        pending_sync: true,
+        pending_sync: 1,
         ...taskData
       } as Task);
     }
@@ -93,12 +94,12 @@ export default function Today() {
   const handleDeleteTask = async (id: string) => {
     await db.tasks.update(id, { 
       deleted: true,
-      pending_sync: true, 
+      pending_sync: 1, 
       updated_at: new Date().toISOString() 
     });
     await db.taskDetails.where({ task_id: id }).modify({ 
       deleted: true, 
-      pending_sync: true, 
+      pending_sync: 1, 
       updated_at: new Date().toISOString() 
     });
   };
@@ -164,7 +165,10 @@ export default function Today() {
 }
 
 function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, isExpanded: boolean, onToggleExpand: (e: React.MouseEvent) => void, onClick: () => void }) {
-  const details = useLiveQuery(() => db.taskDetails.where({ task_id: task.id }).sortBy('start_time'), [task.id]);
+  const details = useLiveQuery(async () => {
+    const all = await db.taskDetails.where({ task_id: task.id }).toArray();
+    return all.filter(d => !d.deleted).sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+  }, [task.id]);
 
   const getTimeRange = () => {
     if (!task.start_time || !task.end_time) return '';
@@ -195,7 +199,7 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
     await db.tasks.update(task.id, { 
       completed: !task.completed,
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     });
   };
 
@@ -210,7 +214,7 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
       completed: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     });
     // Ensure expanded
     if (!isExpanded) onToggleExpand(e);
@@ -299,29 +303,36 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const saveChanges = async () => {
-    if (title === detail.title && startTime === detail.start_time && endTime === detail.end_time && notes === detail.notes) return;
+    if (title === detail.title && startTime === (detail.start_time || '') && endTime === (detail.end_time || '') && notes === (detail.notes || '')) return;
     await db.taskDetails.update(detail.id, {
       title,
       start_time: startTime,
       end_time: endTime,
       notes,
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     });
   };
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      saveChanges();
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [title, startTime, endTime, notes]);
 
   const toggleCompletion = async () => {
     await db.taskDetails.update(detail.id, {
       completed: !detail.completed,
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     });
   };
 
   const handleDelete = async () => {
     await db.taskDetails.update(detail.id, {
       deleted: true,
-      pending_sync: true,
+      pending_sync: 1,
       updated_at: new Date().toISOString()
     });
   };
@@ -345,7 +356,6 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            onBlur={saveChanges}
             placeholder="Sub-task title..."
             className={`flex-1 bg-transparent text-sm focus:outline-none min-w-0 ${detail.completed ? 'line-through text-muted-foreground' : ''}`}
           />
@@ -355,7 +365,6 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
               type="time" 
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
-              onBlur={saveChanges}
               className="text-xs bg-transparent focus:outline-none w-[70px] text-center"
             />
             <span className="text-xs font-medium">-</span>
@@ -363,7 +372,6 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
               type="time" 
               value={endTime}
               onChange={e => setEndTime(e.target.value)}
-              onBlur={saveChanges}
               className="text-xs bg-transparent focus:outline-none w-[70px] text-center"
             />
           </div>
@@ -386,11 +394,6 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
               parentId={detail.id}
            />
            <AttachmentList parentId={detail.id} />
-           
-           {/* Auto-save hook for notes */}
-           <button onClick={saveChanges} className="mt-2 text-xs font-medium text-muted-foreground hover:text-primary transition-colors flex items-center">
-              <CheckSquare size={12} className="mr-1" /> Save notes
-           </button>
         </div>
       )}
     </div>

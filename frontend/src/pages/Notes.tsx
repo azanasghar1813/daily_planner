@@ -10,9 +10,10 @@ import { useAuth } from '../components/AuthProvider';
 export default function Notes() {
   const { user } = useAuth();
   const notes = useLiveQuery(async () => {
-    const allNotes = await db.notes.toArray();
+    if (!user) return [];
+    const allNotes = await db.notes.where({ user_id: user.id }).toArray();
     return allNotes.filter(n => !n.deleted).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-  }, []);
+  }, [user?.id]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   // If selected note is deleted or not set, select the first one if available
@@ -34,7 +35,7 @@ export default function Notes() {
       content: '',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     };
     await db.notes.add(newNote);
     setSelectedNoteId(newNote.id);
@@ -44,12 +45,12 @@ export default function Notes() {
     e.stopPropagation();
     await db.notes.update(id, {
       deleted: true,
-      pending_sync: true,
+      pending_sync: 1,
       updated_at: new Date().toISOString()
     });
-    await db.attachments.where({ parent_id: id }).modify({
+    await db.attachments.where({ task_detail_id: id }).modify({
       deleted: true,
-      pending_sync: true
+      pending_sync: 1
     });
     if (selectedNoteId === id) setSelectedNoteId(null);
   };
@@ -58,7 +59,7 @@ export default function Notes() {
     await db.notes.update(id, {
       ...updates,
       updated_at: new Date().toISOString(),
-      pending_sync: true
+      pending_sync: 1
     });
   };
 
@@ -148,7 +149,11 @@ export default function Notes() {
                 <RichNoteEditor 
                   key={selectedNote.id}
                   initialValue={selectedNote.content}
-                  onChange={(val) => updateNote(selectedNote.id, { content: val })}
+                  onChange={(val) => {
+                    if (val !== selectedNote.content) {
+                      updateNote(selectedNote.id, { content: val });
+                    }
+                  }}
                   parentId={selectedNote.id}
                 />
               </div>

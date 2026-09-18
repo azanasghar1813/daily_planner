@@ -11,7 +11,7 @@ export default function AttachmentList({ parentId }: AttachmentListProps) {
   const [preview, setPreview] = useState<{ url: string; type: 'image' | 'pdf' } | null>(null);
 
   const attachments = useLiveQuery(async () => {
-    const all = await db.attachments.where({ parent_id: parentId }).toArray();
+    const all = await db.attachments.where({ task_detail_id: parentId }).toArray();
     return all.filter(a => !a.deleted).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [parentId]);
 
@@ -21,7 +21,7 @@ export default function AttachmentList({ parentId }: AttachmentListProps) {
     e.stopPropagation();
     await db.attachments.update(id, {
       deleted: true,
-      pending_sync: true
+      pending_sync: 1
     });
   };
 

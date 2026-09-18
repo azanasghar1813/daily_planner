@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday
@@ -7,10 +7,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../components/AuthProvider';
 
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -26,8 +28,11 @@ export default function Calendar() {
 
   // Fetch all tasks for the visible calendar grid
   const tasks = useLiveQuery(
-    () => db.tasks.where('date').between(startStr, endStr, true, true).toArray(),
-    [startStr, endStr]
+    () => {
+      if (!user) return [];
+      return db.tasks.where('date').between(startStr, endStr, true, true).and(t => t.user_id === user.id).toArray();
+    },
+    [startStr, endStr, user?.id]
   );
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
@@ -68,7 +73,7 @@ export default function Calendar() {
         <div className="flex-1 grid grid-cols-7 grid-rows-5 lg:grid-rows-6 min-h-0">
           {days.map((day, i) => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            const dayTasks = tasks?.filter(t => t.date === dayStr) || [];
+            const dayTasks = tasks?.filter(t => t.date === dayStr && !t.deleted) || [];
 
             const isCurrentMonth = isSameMonth(day, monthStart);
             const isTodayDate = isToday(day);

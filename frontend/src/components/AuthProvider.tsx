@@ -45,6 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Clear local database on sign out to protect privacy
     await db.delete(); 
     await db.open(); // Re-open an empty DB
+    localStorage.removeItem('last_synced_at');
     window.location.href = '/';
   };
 
