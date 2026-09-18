@@ -61,7 +61,7 @@ function ProtectedRoutes() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="daily-planner-theme">
+    <ThemeProvider defaultTheme="light" storageKey="daily-planner-theme">
       <AuthProvider>
         <Router>
           <Routes>

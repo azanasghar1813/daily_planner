@@ -28,32 +28,32 @@ export default function AttachmentList({ parentId }: AttachmentListProps) {
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
       {attachments.map(att => (
-        <div key={att.id} className="flex items-center justify-between p-2 rounded-md bg-secondary/20 border border-border/50 group">
-          <div className="flex items-center space-x-3 overflow-hidden">
-            <div className="p-2 bg-secondary rounded text-primary">
+        <div key={att.id} className="flex items-center justify-between p-2 rounded-md bg-secondary/20 border border-border/50 group min-w-0">
+          <div className="flex items-center space-x-3 overflow-hidden min-w-0 flex-1">
+            <div className="p-2 bg-secondary rounded text-primary flex-shrink-0">
               {att.type === 'image' ? <ImageIcon size={16} /> : 
                att.type === 'voice' ? <Mic size={16} /> : 
                <Paperclip size={16} />}
             </div>
             
             {att.type === 'voice' ? (
-              <audio src={att.data} controls className="h-8 w-40" />
+              <audio src={att.data} controls className="h-8 w-40 flex-shrink-0" />
             ) : att.type === 'image' ? (
               <button 
                 onClick={() => setPreview({ url: att.data, type: 'image' })}
-                className="flex items-center space-x-2 truncate hover:underline text-left"
+                className="flex items-center space-x-2 truncate hover:underline text-left min-w-0 flex-1"
               >
-                 <span className="text-sm font-medium truncate">{att.name}</span>
+                 <span className="text-sm font-medium truncate inline-block w-full">{att.name}</span>
               </button>
             ) : (
-              <div className="flex items-center space-x-2 truncate">
+              <div className="flex items-center space-x-2 truncate min-w-0 flex-1">
                  <button 
                    onClick={() => att.mime_type === 'application/pdf' ? setPreview({ url: att.data, type: 'pdf' }) : window.open(att.data, '_blank')}
-                   className="text-sm font-medium truncate hover:underline text-left"
+                   className="text-sm font-medium truncate hover:underline text-left min-w-0 flex-1"
                  >
                    {att.name}
                  </button>
-                 <a href={att.data} download={att.name} title="Download File">
+                 <a href={att.data} download={att.name} title="Download File" className="flex-shrink-0">
                    <Download size={12} className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0" />
                  </a>
               </div>

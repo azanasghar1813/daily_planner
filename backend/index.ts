@@ -274,7 +274,7 @@ app.get('/api/sync/pull', requireAuth, async (req, res) => {
     
     const parentIds = [...attTaskDetailIds.map(d => d.id), ...allUserNotes.map(n => n.id)];
     const attQuery: any = { task_detail_id: { $in: parentIds } };
-    if (lastSync) attQuery.created_at = { $gt: lastSync }; // Attachments only have created_at
+    if (lastSync) attQuery.updated_at = { $gt: lastSync };
     const attachments = await Attachment.find(attQuery).lean();
 
     res.json({

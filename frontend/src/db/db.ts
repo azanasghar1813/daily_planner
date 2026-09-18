@@ -45,11 +45,13 @@ export interface Attachment {
   task_detail_id: string; // the sub-task or note this belongs to
   type: 'image' | 'file' | 'voice';
   name: string;
-  data: string; // Base64 encoded string
+  data: string; // url or base64
   mime_type: string;
   created_at: string;
-  pending_sync?: number;
+  updated_at: string;
   deleted?: boolean;
+  pending_sync?: number;
+  pending_upload?: number; // 1 if needs to be uploaded to cloudinary
 }
 
 export class DailyPlannerDB extends Dexie {

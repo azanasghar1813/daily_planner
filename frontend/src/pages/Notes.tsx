@@ -18,9 +18,7 @@ export default function Notes() {
 
   // If selected note is deleted or not set, select the first one if available
   useEffect(() => {
-    if (notes && notes.length > 0 && !selectedNoteId) {
-      setSelectedNoteId(notes[0].id);
-    } else if (notes && notes.length === 0) {
+    if (notes && notes.length === 0) {
       setSelectedNoteId(null);
     }
   }, [notes, selectedNoteId]);

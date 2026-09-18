@@ -266,9 +266,9 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
 
         {/* Expanded Details */}
         {isExpanded && (
-          <div className="px-4 pb-4 border-t border-border/50 pt-4 bg-secondary/10">
+          <div className="px-2 md:px-4 pb-4 border-t border-border/50 pt-4 bg-secondary/10">
             {details && details.length > 0 && (
-              <div className="space-y-2 mb-4 pl-8">
+              <div className="space-y-2 mb-4 md:pl-8">
                 {details.map(detail => (
                   <InlineDetailEditor key={detail.id} detail={detail} />
                 ))}
@@ -276,7 +276,7 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
             )}
             
             {task.description && (
-              <div className="text-sm text-muted-foreground pl-8 mb-4">
+              <div className="text-sm text-muted-foreground md:pl-8 mb-4">
                 <span className="font-medium text-foreground">Notes: </span>
                 {task.description}
               </div>
@@ -284,7 +284,7 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
             
             <button 
               onClick={addDetail}
-              className="ml-8 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center transition-colors"
+              className="md:ml-8 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center transition-colors"
             >
               <Plus size={14} className="mr-1" /> Add detail
             </button>
@@ -344,8 +344,8 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
           {detail.completed ? <CheckSquare size={16} className="text-foreground" /> : <Square size={16} />}
         </button>
         
-        <div className="flex-1 bg-background border border-border rounded-lg p-2 focus-within:ring-2 focus-within:ring-primary/20 flex flex-col sm:flex-row sm:items-center gap-2">
-          <div className="flex items-center space-x-2 w-full">
+        <div className="flex-1 bg-background border border-border rounded-lg p-2 focus-within:ring-2 focus-within:ring-primary/20 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+          <div className="flex items-center space-x-2 w-full min-w-0">
             <button 
                onClick={() => setIsExpanded(!isExpanded)}
                className="p-1 hover:bg-secondary rounded text-muted-foreground flex-shrink-0"
@@ -362,33 +362,44 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
             />
           </div>
           
-          <div className="flex items-center space-x-1 text-muted-foreground bg-secondary/50 rounded px-2 py-1 flex-shrink-0 self-start sm:self-auto ml-7 sm:ml-0">
+          <div className="flex items-center space-x-1 text-muted-foreground bg-secondary/50 rounded px-2 py-1 flex-shrink-0 self-start sm:self-auto ml-7 sm:ml-0 overflow-x-auto w-full sm:w-auto">
              <input 
               type="time" 
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
-              className="text-xs bg-transparent focus:outline-none w-[70px] text-center"
+              className="text-xs bg-transparent focus:outline-none w-[65px] sm:w-[70px] text-center"
             />
             <span className="text-xs font-medium">-</span>
             <input 
               type="time" 
               value={endTime}
-              onChange={e => setEndTime(e.target.value)}
-              className="text-xs bg-transparent focus:outline-none w-[70px] text-center"
+              onChange={e => {
+                 const newEnd = e.target.value;
+                 if (startTime && newEnd) {
+                   const start = new Date(`2000-01-01T${startTime}`);
+                   const end = new Date(`2000-01-01T${newEnd}`);
+                   if (end < start) {
+                     alert("End time cannot be before start time!");
+                     return;
+                   }
+                 }
+                 setEndTime(newEnd);
+              }}
+              className="text-xs bg-transparent focus:outline-none w-[65px] sm:w-[70px] text-center"
             />
           </div>
         </div>
         
         <button 
           onClick={handleDelete}
-          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-opacity flex-shrink-0"
+          className="opacity-100 md:opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-opacity flex-shrink-0"
         >
           <Trash2 size={16} />
         </button>
       </div>
 
       {isExpanded && (
-        <div className="ml-8 pr-12">
+        <div className="ml-2 sm:ml-8 pr-2 sm:pr-12">
            <RichNoteEditor 
               key={detail.id}
               initialValue={notes}

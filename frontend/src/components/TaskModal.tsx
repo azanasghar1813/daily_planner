@@ -39,6 +39,17 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    
+    // Time validation
+    if (startTime && endTime) {
+      const start = new Date(`2000-01-01T${startTime}`);
+      const end = new Date(`2000-01-01T${endTime}`);
+      if (end < start) {
+        alert("End time cannot be before start time!");
+        return;
+      }
+    }
+
     onSave({
       title,
       start_time: startTime,
@@ -52,15 +63,16 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-background/80 backdrop-blur-sm">
       <div className="bg-card w-full max-w-md rounded-t-3xl md:rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-lg border border-border flex flex-col max-h-[90vh] md:max-h-[85vh] mt-auto md:mt-0 overflow-hidden">
-        <div className="w-12 h-1.5 bg-border rounded-full mx-auto mt-3 mb-1 md:hidden"></div>
-        <div className="flex items-center justify-between p-4 pt-2 md:pt-4 border-b border-border">
+        <div className="w-12 h-1.5 bg-border rounded-full mx-auto mt-3 mb-1 md:hidden flex-shrink-0"></div>
+        <div className="flex items-center justify-between p-4 pt-2 md:pt-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold">{initialData ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:bg-secondary rounded-full transition-colors">
             <X size={20} />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-4 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-4 overflow-y-auto space-y-4 flex-1">
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-1">Title</label>
             <input 
@@ -105,7 +117,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
             />
           </div>
 
-          <div className="pt-4 flex items-center justify-between">
+          </div>
+
+          <div className="p-4 border-t border-border flex items-center justify-between flex-shrink-0 bg-card pb-safe">
             {initialData && onDelete ? (
               <button 
                 type="button" 

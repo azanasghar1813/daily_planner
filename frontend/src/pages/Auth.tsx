@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../components/AuthProvider';
 import { Navigate } from 'react-router-dom';
-import { Mail, ArrowRight, Lock, MailCheck } from 'lucide-react';
+import { Mail, ArrowRight, Lock, MailCheck, Eye, EyeOff } from 'lucide-react';
 
 export default function Auth() {
   const { user } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'confirm_email'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,7 +37,11 @@ export default function Auth() {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication');
+      if (!navigator.onLine) {
+        setError("Network error: Please connect to the internet to sign in.");
+      } else {
+        setError(err.message || 'An error occurred during authentication');
+      }
     } finally {
       setLoading(false);
     }
@@ -105,13 +110,20 @@ export default function Auth() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                className="w-full bg-background border border-border rounded-xl pl-10 pr-12 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
                 placeholder="••••••••"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

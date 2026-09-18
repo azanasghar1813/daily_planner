@@ -21,11 +21,14 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync to parent
+  // Sync to parent (Debounced)
   useEffect(() => {
-    if (value !== initialValue) {
-      onChange(value);
-    }
+    const handler = setTimeout(() => {
+      if (value !== initialValue) {
+        onChange(value);
+      }
+    }, 500);
+    return () => clearTimeout(handler);
   }, [value]);
 
   const updateValue = (newValue: string) => {
@@ -72,6 +75,14 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
     insertAtCursor('\n• ');
   };
 
+  const handleBold = () => {
+    insertAtCursor('**bold**');
+  };
+
+  const handleItalic = () => {
+    insertAtCursor('*italic*');
+  };
+
   const handleNumber = () => {
     insertAtCursor('\n1. ');
   };
@@ -106,6 +117,31 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
           setIsUploading(true);
           
           try {
+            if (!navigator.onLine) {
+               // Offline Fallback
+               const reader = new FileReader();
+               reader.readAsDataURL(audioBlob);
+               reader.onloadend = async () => {
+                 const base64data = reader.result as string;
+                 const attachment: Attachment = {
+                   id: crypto.randomUUID(),
+                   task_detail_id: parentId,
+                   type: 'voice',
+                   name: `Voice Note ${new Date().toLocaleTimeString()} (Offline)`,
+                   data: base64data,
+                   mime_type: 'audio/webm',
+                   created_at: new Date().toISOString(),
+                   updated_at: new Date().toISOString(),
+                   pending_sync: 1,
+                   pending_upload: 1
+                 };
+                 await db.attachments.add(attachment);
+                 insertAtCursor(`\n🎙️ [${attachment.name}](voice:${attachment.id})\n`);
+                 setIsUploading(false);
+               };
+               return;
+            }
+
             const formData = new FormData();
             formData.append('file', audioBlob, 'voice_note.webm');
             formData.append('type', 'voice');
@@ -128,7 +164,9 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
                 data: data.secure_url,
                 mime_type: 'audio/webm',
                 created_at: new Date().toISOString(),
-                pending_sync: 1
+                updated_at: new Date().toISOString(),
+                pending_sync: 1,
+                pending_upload: 0
               };
               
               await db.attachments.add(attachment);
@@ -160,9 +198,34 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
 
     setIsUploading(true);
     try {
+      const isImage = file.type.startsWith('image/');
+      
+      if (!navigator.onLine) {
+         const reader = new FileReader();
+         reader.readAsDataURL(file);
+         reader.onloadend = async () => {
+           const base64data = reader.result as string;
+           const attachment: Attachment = {
+             id: crypto.randomUUID(),
+             task_detail_id: parentId,
+             type: isImage ? 'image' : 'file',
+             name: `${file.name} (Offline)`,
+             data: base64data,
+             mime_type: file.type || 'application/octet-stream',
+             created_at: new Date().toISOString(),
+             updated_at: new Date().toISOString(),
+             pending_sync: 1,
+             pending_upload: 1
+           };
+           await db.attachments.add(attachment);
+           setIsUploading(false);
+           if (fileInputRef.current) fileInputRef.current.value = '';
+         };
+         return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
-      const isImage = file.type.startsWith('image/');
       formData.append('type', isImage ? 'image' : 'file');
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -183,7 +246,9 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
           data: data.secure_url,
           mime_type: file.type || 'application/octet-stream',
           created_at: new Date().toISOString(),
-          pending_sync: 1
+          updated_at: new Date().toISOString(),
+          pending_sync: 1,
+          pending_upload: 0
         };
         await db.attachments.add(attachment);
       } else {
@@ -208,6 +273,14 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
           <Redo2 size={16} />
         </button>
         
+        
+        <button onClick={handleBold} className="p-1.5 rounded hover:bg-secondary text-muted-foreground font-bold" title="Bold">
+          B
+        </button>
+        <button onClick={handleItalic} className="p-1.5 rounded hover:bg-secondary text-muted-foreground italic font-serif" title="Italic">
+          I
+        </button>
+
         <div className="w-px h-4 bg-border mx-1"></div>
         
         <button onClick={handleBullet} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="Bullet List">

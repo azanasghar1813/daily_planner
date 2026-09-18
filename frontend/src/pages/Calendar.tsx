@@ -99,34 +99,16 @@ export default function Calendar() {
 
                 {/* Task Indicators */}
                 <div className="flex-1 min-h-0 w-full overflow-hidden mt-1">
-                  <div className="flex flex-wrap md:hidden gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {dayTasks.map(task => (
                       <div
                         key={task.id}
                         className={`
-                          h-1.5 w-1.5 rounded-full shrink-0
+                          h-1.5 w-1.5 md:h-2 md:w-2 rounded-full shrink-0
                           ${task.completed ? 'bg-green-500' : 'bg-muted-foreground/50'}
                         `}
                       />
                     ))}
-                  </div>
-                  {/* On larger screens, show text for the first few tasks */}
-                  <div className="hidden md:flex flex-col gap-1 w-full mt-1">
-                    {dayTasks.slice(0, 2).map(task => (
-                      <div
-                        key={'text-' + task.id}
-                        className={`text-[10px] truncate px-1.5 py-0.5 rounded
-                          ${task.completed ? 'bg-green-500/10 text-green-600 line-through' : 'bg-secondary text-muted-foreground'}
-                        `}
-                      >
-                        {task.title}
-                      </div>
-                    ))}
-                    {dayTasks.length > 2 && (
-                      <div className="text-[10px] text-muted-foreground font-medium pl-1">
-                        +{dayTasks.length - 2} more
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

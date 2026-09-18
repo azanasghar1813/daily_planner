@@ -111,7 +111,47 @@ export async function syncData() {
     const pendingTasks = await db.tasks.where({ pending_sync: 1 }).toArray();
     const pendingTaskDetails = await db.taskDetails.where({ pending_sync: 1 }).toArray();
     const pendingNotes = await db.notes.where({ pending_sync: 1 }).toArray();
-    const pendingAttachments = await db.attachments.where({ pending_sync: 1 }).toArray();
+    let pendingAttachments = await db.attachments.where({ pending_sync: 1 }).toArray();
+
+    // 2a. Intercept offline media uploads
+    for (let i = 0; i < pendingAttachments.length; i++) {
+      const att = pendingAttachments[i];
+      if (att.pending_upload === 1 && att.data.startsWith('data:')) {
+        console.log(`Uploading offline media: ${att.name}...`);
+        try {
+          const res = await fetch(att.data);
+          const blob = await res.blob();
+          
+          const formData = new FormData();
+          formData.append('file', blob, att.name.replace(' (Offline)', ''));
+          formData.append('type', att.type === 'voice' ? 'voice' : (att.type === 'image' ? 'image' : 'file'));
+          
+          const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+          const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            body: formData
+          });
+          
+          const uploadData = await uploadRes.json();
+          if (uploadRes.ok && uploadData.secure_url) {
+            // Update local DB
+            await db.attachments.update(att.id, { 
+              data: uploadData.secure_url, 
+              pending_upload: 0,
+              name: att.name.replace(' (Offline)', '')
+            });
+            // Update the object in memory so it gets pushed correctly
+            pendingAttachments[i].data = uploadData.secure_url;
+            pendingAttachments[i].pending_upload = 0;
+            pendingAttachments[i].name = att.name.replace(' (Offline)', '');
+          }
+        } catch (err) {
+          console.error(`Failed to upload offline media ${att.name}:`, err);
+          // We will try again next sync
+        }
+      }
+    }
 
     if (pendingTasks.length === 0 && pendingTaskDetails.length === 0 && pendingNotes.length === 0 && pendingAttachments.length === 0) {
       console.log('Nothing to sync.');
