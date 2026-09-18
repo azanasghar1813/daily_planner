@@ -54,10 +54,10 @@ export interface Attachment {
 }
 
 export class DailyPlannerDB extends Dexie {
-  tasks: Dexie.Table<Task, string>;
-  taskDetails: Dexie.Table<TaskDetail, string>;
-  notes: Dexie.Table<Note, string>;
-  attachments: Dexie.Table<Attachment, string>;
+  tasks!: Dexie.Table<Task, string>;
+  taskDetails!: Dexie.Table<TaskDetail, string>;
+  notes!: Dexie.Table<Note, string>;
+  attachments!: Dexie.Table<Attachment, string>;
 
   constructor() {
     super('DailyPlannerDB');
@@ -74,10 +74,10 @@ export const db = new DailyPlannerDB();
 
 const tables = ['tasks', 'taskDetails', 'notes', 'attachments'] as const;
 tables.forEach(table => {
-  db[table].hook('creating', (primKey, obj: any) => {
+  db[table].hook('creating', (_primKey, obj: any) => {
     if (obj.pending_sync === 1) syncDataDebounced();
   });
-  db[table].hook('updating', (mods: any, primKey, obj: any) => {
+  db[table].hook('updating', (mods: any, _primKey, obj: any) => {
     if (mods.pending_sync === 1 || obj.pending_sync === 1) syncDataDebounced();
   });
 });
