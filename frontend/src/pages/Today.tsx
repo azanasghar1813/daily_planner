@@ -362,14 +362,15 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
             />
           </div>
           
-          <div className="flex items-center space-x-1 text-muted-foreground bg-secondary/50 rounded px-2 py-1 flex-shrink-0 self-start sm:self-auto ml-7 sm:ml-0 overflow-x-auto w-full sm:w-auto">
+          <div className="flex items-center space-x-2 bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 flex-shrink-0 self-start sm:self-auto ml-7 sm:ml-0 overflow-x-auto w-full sm:w-auto">
+             <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">from</span>
              <input 
               type="time" 
               value={startTime}
               onChange={e => setStartTime(e.target.value)}
-              className="text-xs bg-transparent focus:outline-none w-[65px] sm:w-[70px] text-center"
+              className="text-xs font-medium bg-background border border-border/50 shadow-sm rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 w-[70px] text-center"
             />
-            <span className="text-xs font-medium">-</span>
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/70">to</span>
             <input 
               type="time" 
               value={endTime}
@@ -385,7 +386,7 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
                  }
                  setEndTime(newEnd);
               }}
-              className="text-xs bg-transparent focus:outline-none w-[65px] sm:w-[70px] text-center"
+              className="text-xs font-medium bg-background border border-border/50 shadow-sm rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 w-[70px] text-center"
             />
           </div>
         </div>

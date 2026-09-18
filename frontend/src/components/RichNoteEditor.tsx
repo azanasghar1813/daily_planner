@@ -53,44 +53,136 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
     }
   };
 
-  const insertAtCursor = (textToInsert: string) => {
+  const insertText = (prefix: string, suffix: string = '') => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const currentVal = textarea.value;
+    const selectedText = currentVal.substring(start, end);
     
-    const newVal = currentVal.substring(0, start) + textToInsert + currentVal.substring(end);
+    const newVal = currentVal.substring(0, start) + prefix + (selectedText || (suffix ? 'text' : '')) + suffix + currentVal.substring(end);
     updateValue(newVal);
     
-    // reset cursor
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
+      if (!selectedText && suffix) {
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + 4);
+      } else {
+        const newPos = start + prefix.length + selectedText.length + suffix.length;
+        textarea.setSelectionRange(newPos, newPos);
+      }
     }, 0);
   };
 
-  const handleBullet = () => {
-    insertAtCursor('\n• ');
+  const togglePrefixAtLine = (prefixMatch: RegExp, defaultPrefix: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const currentVal = textarea.value;
+    
+    const lastNewline = currentVal.lastIndexOf('\n', start - 1);
+    const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
+    const lineEnd = currentVal.indexOf('\n', start);
+    const endOfLine = lineEnd === -1 ? currentVal.length : lineEnd;
+    
+    const currentLine = currentVal.substring(lineStart, endOfLine);
+    
+    if (prefixMatch.test(currentLine)) {
+      // Remove prefix
+      const newLine = currentLine.replace(prefixMatch, '');
+      const newVal = currentVal.substring(0, lineStart) + newLine + currentVal.substring(endOfLine);
+      updateValue(newVal);
+      setTimeout(() => {
+        textarea.focus();
+        const diff = newLine.length - currentLine.length;
+        textarea.setSelectionRange(Math.max(lineStart, start + diff), Math.max(lineStart, start + diff));
+      }, 0);
+    } else {
+      // Add prefix
+      const newVal = currentVal.substring(0, lineStart) + defaultPrefix + currentLine + currentVal.substring(endOfLine);
+      updateValue(newVal);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + defaultPrefix.length, start + defaultPrefix.length);
+      }, 0);
+    }
   };
 
+  const handleBullet = () => togglePrefixAtLine(/^(\s*)•\s+/, '• ');
+  const handleNumber = () => togglePrefixAtLine(/^(\s*)\d+\.\s+/, '1. ');
+
   const handleBold = () => {
-    insertAtCursor('**bold**');
+    insertText('**', '**');
   };
 
   const handleItalic = () => {
-    insertAtCursor('*italic*');
-  };
-
-  const handleNumber = () => {
-    insertAtCursor('\n1. ');
+    insertText('*', '*');
   };
 
   const handleLink = () => {
     const url = prompt('Enter link URL:');
     if (url) {
-      insertAtCursor(`[Link](${url})`);
+      insertText('[', `](${url})`);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const currentVal = textarea.value;
+      const textBeforeCursor = currentVal.substring(0, start);
+      const lines = textBeforeCursor.split('\n');
+      const currentLine = lines[lines.length - 1];
+
+      const bulletMatch = currentLine.match(/^(\s*)•\s+(.*)$/);
+      if (bulletMatch) {
+        e.preventDefault();
+        if (!bulletMatch[2].trim()) {
+          const newVal = currentVal.substring(0, start - currentLine.length) + currentVal.substring(start);
+          updateValue(newVal);
+          setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start - currentLine.length, start - currentLine.length);
+          }, 0);
+        } else {
+          const prefix = `\n${bulletMatch[1]}• `;
+          const newVal = currentVal.substring(0, start) + prefix + currentVal.substring(start);
+          updateValue(newVal);
+          setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + prefix.length, start + prefix.length);
+          }, 0);
+        }
+        return;
+      }
+
+      const numberMatch = currentLine.match(/^(\s*)(\d+)\.\s+(.*)$/);
+      if (numberMatch) {
+        e.preventDefault();
+        if (!numberMatch[3].trim()) {
+           const newVal = currentVal.substring(0, start - currentLine.length) + currentVal.substring(start);
+           updateValue(newVal);
+           setTimeout(() => {
+             textarea.focus();
+             textarea.setSelectionRange(start - currentLine.length, start - currentLine.length);
+           }, 0);
+        } else {
+           const nextNum = parseInt(numberMatch[2], 10) + 1;
+           const prefix = `\n${numberMatch[1]}${nextNum}. `;
+           const newVal = currentVal.substring(0, start) + prefix + currentVal.substring(start);
+           updateValue(newVal);
+           setTimeout(() => {
+             textarea.focus();
+             textarea.setSelectionRange(start + prefix.length, start + prefix.length);
+           }, 0);
+        }
+        return;
+      }
     }
   };
 
@@ -136,7 +228,7 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
                    pending_upload: 1
                  };
                  await db.attachments.add(attachment);
-                 insertAtCursor(`\n🎙️ [${attachment.name}](voice:${attachment.id})\n`);
+                 insertText(`\n🎙️ [${attachment.name}](voice:${attachment.id})\n`);
                  setIsUploading(false);
                };
                return;
@@ -170,7 +262,7 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
               };
               
               await db.attachments.add(attachment);
-              insertAtCursor(`\n🎙️ [${attachment.name}](voice:${attachment.id})\n`);
+              insertText(`\n🎙️ [${attachment.name}](voice:${attachment.id})\n`);
             } else {
               alert(data.error || 'Upload failed');
             }
@@ -311,6 +403,7 @@ export default function RichNoteEditor({ initialValue, onChange, parentId }: Ric
         ref={textareaRef}
         value={value}
         onChange={e => updateValue(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Add details, notes, or bullet points here..."
         className="w-full bg-transparent text-sm text-foreground focus:outline-none p-3 resize-y min-h-[80px]"
       />

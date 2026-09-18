@@ -61,7 +61,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-background/80 backdrop-blur-sm">
       <div className="bg-card w-full max-w-md rounded-t-3xl md:rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-lg border border-border flex flex-col max-h-[90vh] md:max-h-[85vh] mt-auto md:mt-0 overflow-hidden">
         <div className="w-12 h-1.5 bg-border rounded-full mx-auto mt-3 mb-1 md:hidden flex-shrink-0"></div>
         <div className="flex items-center justify-between p-4 pt-2 md:pt-4 border-b border-border flex-shrink-0">
@@ -71,7 +71,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
           <div className="p-4 overflow-y-auto space-y-4 flex-1">
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-1">Title</label>
