@@ -72,8 +72,8 @@ export default function Auth() {
     <div className="flex h-screen w-full items-center justify-center bg-background p-4">
       <div className="w-full max-w-md bg-card border border-border p-8 rounded-2xl shadow-xl">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <Lock className="text-primary" size={24} />
+          <div className="w-16 h-16 bg-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-4 p-2 shadow-inner border border-primary/10">
+            <img src="/logo.png" alt="Daily Planner Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Daily Planner</h1>
           <p className="text-muted-foreground">Sign in to sync your tasks everywhere.</p>

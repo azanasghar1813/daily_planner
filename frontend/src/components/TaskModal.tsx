@@ -50,9 +50,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, initialDa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-      <div className="bg-card w-full max-w-md rounded-2xl shadow-lg border border-border flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b border-border">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-background/80 backdrop-blur-sm">
+      <div className="bg-card w-full max-w-md rounded-t-3xl md:rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-lg border border-border flex flex-col max-h-[90vh] md:max-h-[85vh] mt-auto md:mt-0 overflow-hidden">
+        <div className="w-12 h-1.5 bg-border rounded-full mx-auto mt-3 mb-1 md:hidden"></div>
+        <div className="flex items-center justify-between p-4 pt-2 md:pt-4 border-b border-border">
           <h2 className="text-lg font-semibold">{initialData ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:bg-secondary rounded-full transition-colors">
             <X size={20} />

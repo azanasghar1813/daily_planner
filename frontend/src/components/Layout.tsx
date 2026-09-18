@@ -15,9 +15,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      {/* Mobile Top Header (Sticky) */}
+      <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-card/80 backdrop-blur-md border-b border-border flex items-center px-4 z-50">
+        <img src="/logo.png" alt="Planner Logo" className="w-8 h-8 mr-2 object-contain" />
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Planner</h1>
+      </header>
+
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card p-4">
-        <h1 className="text-2xl font-bold mb-8 mt-4 tracking-tight px-2">Planner</h1>
+        <div className="flex items-center mb-8 mt-4 px-2">
+          <img src="/logo.png" alt="Planner Logo" className="w-8 h-8 mr-3 object-contain" />
+          <h1 className="text-2xl font-bold tracking-tight">Planner</h1>
+        </div>
         <nav className="flex-1 space-y-2">
           {navItems.map((item) => (
             <NavLink
@@ -38,7 +47,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full relative overflow-y-auto overflow-x-hidden">
+      <main className="flex-1 flex flex-col h-full relative overflow-y-auto overflow-x-hidden pt-14 md:pt-0">
         {children}
       </main>
 

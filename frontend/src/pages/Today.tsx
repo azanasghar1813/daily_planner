@@ -146,7 +146,7 @@ export default function Today() {
 
       <button 
         onClick={openNewTaskModal}
-        className="fixed bottom-20 md:bottom-8 right-4 md:right-auto md:w-[calc(100%-4rem)] max-w-3xl md:mx-auto bg-foreground text-background hover:opacity-90 p-4 md:p-3 rounded-full md:rounded-xl shadow-lg flex items-center justify-center space-x-2 transition-transform active:scale-95 z-40"
+        className="fixed bottom-20 md:bottom-8 right-4 md:right-8 bg-foreground text-background hover:opacity-90 p-4 md:px-6 md:py-3 rounded-full shadow-lg shadow-black/20 flex items-center justify-center space-x-2 transition-transform active:scale-95 z-40"
       >
         <Plus size={24} className="md:w-5 md:h-5" />
         <span className="hidden md:inline font-medium">Add Task</span>
@@ -344,23 +344,25 @@ function InlineDetailEditor({ detail }: { detail: TaskDetail }) {
           {detail.completed ? <CheckSquare size={16} className="text-foreground" /> : <Square size={16} />}
         </button>
         
-        <div className="flex-1 bg-background border border-border rounded-lg p-2 focus-within:ring-2 focus-within:ring-primary/20 flex items-center space-x-2">
-          <button 
-             onClick={() => setIsExpanded(!isExpanded)}
-             className="p-1 hover:bg-secondary rounded text-muted-foreground flex-shrink-0"
-          >
-             {isExpanded ? <ChevronDown size={14} /> : <ChevronRightSmall size={14} />}
-          </button>
+        <div className="flex-1 bg-background border border-border rounded-lg p-2 focus-within:ring-2 focus-within:ring-primary/20 flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center space-x-2 w-full">
+            <button 
+               onClick={() => setIsExpanded(!isExpanded)}
+               className="p-1 hover:bg-secondary rounded text-muted-foreground flex-shrink-0"
+            >
+               {isExpanded ? <ChevronDown size={14} /> : <ChevronRightSmall size={14} />}
+            </button>
+            
+            <input 
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Sub-task title..."
+              className={`flex-1 bg-transparent text-sm focus:outline-none min-w-0 ${detail.completed ? 'line-through text-muted-foreground' : ''}`}
+            />
+          </div>
           
-          <input 
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Sub-task title..."
-            className={`flex-1 bg-transparent text-sm focus:outline-none min-w-0 ${detail.completed ? 'line-through text-muted-foreground' : ''}`}
-          />
-          
-          <div className="flex items-center space-x-1 text-muted-foreground bg-secondary/50 rounded px-2 py-1 flex-shrink-0">
+          <div className="flex items-center space-x-1 text-muted-foreground bg-secondary/50 rounded px-2 py-1 flex-shrink-0 self-start sm:self-auto ml-7 sm:ml-0">
              <input 
               type="time" 
               value={startTime}
