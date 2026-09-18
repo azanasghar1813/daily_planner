@@ -250,14 +250,14 @@ function TaskItem({ task, isExpanded, onToggleExpand, onClick }: { task: Task, i
               </h3>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 md:space-x-3 text-right shrink-0">
             {getTimeRange() && (
-              <span className="text-sm text-muted-foreground hidden sm:inline-block">
+              <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">
                 {getTimeRange()}
               </span>
             )}
             {getDuration() && (
-              <span className="text-sm font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+              <span className="text-[10px] md:text-sm font-medium text-muted-foreground bg-secondary px-1.5 md:px-2 py-1 rounded-md whitespace-nowrap">
                 {getDuration()}
               </span>
             )}
