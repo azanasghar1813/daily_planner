@@ -24,9 +24,17 @@ function ProtectedRoutes() {
       });
       const intervalId = setInterval(() => {
         syncData();
-      }, 5 * 60 * 1000); // sync every 5 minutes as fallback
+      }, 60 * 1000); // sync every 60 seconds as fallback
+
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') {
+          syncData();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
       return () => {
         clearInterval(intervalId);
+        document.removeEventListener('visibilitychange', handleVisibility);
         closeSSE();
       };
     }

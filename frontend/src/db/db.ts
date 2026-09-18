@@ -1,5 +1,4 @@
 import Dexie from 'dexie';
-import { syncDataDebounced } from './sync';
 
 export interface Task {
   id: string; // uuid
@@ -72,12 +71,3 @@ export class DailyPlannerDB extends Dexie {
 
 export const db = new DailyPlannerDB();
 
-const tables = ['tasks', 'taskDetails', 'notes', 'attachments'] as const;
-tables.forEach(table => {
-  db[table].hook('creating', (_primKey, obj: any) => {
-    if (obj.pending_sync === 1) syncDataDebounced();
-  });
-  db[table].hook('updating', (mods: any, _primKey, obj: any) => {
-    if (mods.pending_sync === 1 || obj.pending_sync === 1) syncDataDebounced();
-  });
-});

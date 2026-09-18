@@ -34,7 +34,7 @@ export default function Today() {
   
   const tasks = useLiveQuery(async () => {
     if (!user) return [];
-    const allTasks = await db.tasks.where({ date: dateStr, user_id: user.id }).toArray();
+    const allTasks = await db.tasks.where('[date+user_id]').equals([dateStr, user.id]).toArray();
     return allTasks.filter(t => !t.deleted).sort((a, b) => {
       if (!a.start_time) return 1;
       if (!b.start_time) return -1;

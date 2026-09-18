@@ -159,10 +159,16 @@ export function syncDataDebounced() {
 }
 
 let sseConnection: EventSource | null = null;
+let reconnectTimeout: number | null = null;
+
 export function setupSSE(token: string) {
   if (sseConnection) {
     sseConnection.close();
   }
+  if (reconnectTimeout) {
+    window.clearTimeout(reconnectTimeout);
+  }
+
   const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
   sseConnection = new EventSource(`${API_BASE}/api/sync/stream?token=${encodeURIComponent(token)}`);
   
@@ -175,6 +181,14 @@ export function setupSSE(token: string) {
   
   sseConnection.onerror = (e) => {
     console.error('SSE Error:', e);
+    closeSSE();
+    // Reconnect after 5 seconds with a fresh token
+    reconnectTimeout = window.setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setupSSE(session.access_token);
+      }
+    }, 5000);
   };
   
   return sseConnection;
@@ -185,7 +199,22 @@ export function closeSSE() {
     sseConnection.close();
     sseConnection = null;
   }
+  if (reconnectTimeout) {
+    window.clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
 }
+
+// Register DB Hooks for syncing
+const tables = ['tasks', 'taskDetails', 'notes', 'attachments'] as const;
+tables.forEach(table => {
+  (db as any)[table].hook('creating', (_primKey: any, obj: any) => {
+    if (obj.pending_sync === 1) syncDataDebounced();
+  });
+  (db as any)[table].hook('updating', (mods: any, _primKey: any, obj: any) => {
+    if (mods.pending_sync === 1 || obj.pending_sync === 1) syncDataDebounced();
+  });
+});
 
 // Simple listener for going online
 window.addEventListener('online', () => {

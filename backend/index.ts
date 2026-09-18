@@ -95,7 +95,12 @@ app.get('/api/sync/stream', requireAuth, (req, res) => {
   if (!sseClients.has(userId)) sseClients.set(userId, []);
   sseClients.get(userId)!.push(res);
 
+  const heartbeat = setInterval(() => {
+    try { res.write(':\n\n'); } catch (e) {}
+  }, 20000);
+
   req.on('close', () => {
+    clearInterval(heartbeat);
     const clients = sseClients.get(userId) || [];
     sseClients.set(userId, clients.filter(c => c !== res));
   });
@@ -167,12 +172,15 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
     
     try {
-      // 1. Process top-level entities (Tasks, Notes) first
+      // 1. Security: fetch owned IDs to verify ownership of incoming data
+      const ownedTaskIds = new Set((await Task.find({ user_id: userId }, { id: 1 }).lean()).map(t => t.id));
+      const ownedNoteIds = new Set((await Note.find({ user_id: userId }, { id: 1 }).lean()).map(n => n.id));
+
+      // 2. Process top-level entities (Tasks, Notes) and incrementally update sets
       if (tasks && tasks.length > 0) {
         for (const t of tasks) {
-          // Verify task belongs to user
           if (t.user_id !== userId) continue;
-          
+          ownedTaskIds.add(t.id);
           const { _id, pending_sync, ...taskData } = t; 
           await Task.findOneAndUpdate({ id: t.id }, taskData, { upsert: true, returnDocument: 'after' });
         }
@@ -180,26 +188,24 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       if (notes && notes.length > 0) {
         for (const n of notes) {
           if (n.user_id !== userId) continue;
+          ownedNoteIds.add(n.id);
           const { _id, pending_sync, ...noteData } = n;
           await Note.findOneAndUpdate({ id: n.id }, noteData, { upsert: true, returnDocument: 'after' });
         }
       }
 
-      // 2. Security: fetch owned IDs to verify ownership of task_details and attachments
-      const ownedTaskIds = new Set((await Task.find({ user_id: userId }, { id: 1 }).lean()).map(t => t.id));
-      const ownedNoteIds = new Set((await Note.find({ user_id: userId }, { id: 1 }).lean()).map(n => n.id));
+      // 3. Fetch owned TaskDetail IDs for Attachments
+      const ownedTaskDetailIds = new Set((await TaskDetail.find({ task_id: { $in: Array.from(ownedTaskIds) } }, { id: 1 }).lean()).map(d => d.id));
 
-      // 3. Process TaskDetails (depend on Tasks)
+      // 4. Process TaskDetails and incrementally update sets
       if (task_details && task_details.length > 0) {
         for (const td of task_details) {
           if (!ownedTaskIds.has(td.task_id)) continue;
+          ownedTaskDetailIds.add(td.id);
           const { _id, pending_sync, ...detailData } = td;
           await TaskDetail.findOneAndUpdate({ id: td.id }, detailData, { upsert: true, returnDocument: 'after' });
         }
       }
-
-      // 4. Fetch owned TaskDetail IDs for Attachments
-      const ownedTaskDetailIds = new Set((await TaskDetail.find({ task_id: { $in: Array.from(ownedTaskIds) } }, { id: 1 }).lean()).map(d => d.id));
 
       // 5. Process Attachments (depend on TaskDetails or Notes)
       if (attachments && attachments.length > 0) {
